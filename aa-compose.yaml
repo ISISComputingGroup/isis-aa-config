@@ -1,0 +1,17 @@
+version: "3.7"
+name: isis_aa_container
+services:
+  isis-aa:
+    build:
+      context: .
+      dockerfile: Containerfile
+    ports:
+      - "17665:17665"
+      - "5064:5064"
+      - "5065:5065"
+    volumes:
+      - type: bind
+        source: ./containerdata
+        target: /storage2
+    container_name: my_aa
+    # image: isis-aa
