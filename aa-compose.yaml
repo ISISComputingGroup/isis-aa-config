@@ -12,6 +12,6 @@ services:
     volumes:
       - type: bind
         source: ./containerdata
-        target: /storage2
+        target: /storage
     container_name: my_aa
     # image: isis-aa
