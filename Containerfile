@@ -71,18 +71,15 @@ ENV ARCHAPPL_MYIDENTITY localhost
 # Ian: 
 # Folders we store data and logs in
 # (may mount them from the host machine):
-RUN mkdir -p /storage/sts
-RUN mkdir -p /storage/mts
-RUN mkdir -p /storage/lts
-RUN mkdir -p /storage/logs
-RUN mkdir -p /storage/logs/tomcat
-#RUN mkdir -p /opt/archiveapp/quickstart_tomcat/apache-tomcat-$TOMCAT_VERSION/
-#RUN rm -rf /opt/archiveapp/quickstart_tomcat/apache-tomcat-$TOMCAT_VERSION/logs
-#RUN ln -s /storage/logs/tomcat /opt/archiveapp/quickstart_tomcat/apache-tomcat-$TOMCAT_VERSION/logs
+# Copy the script to create the data persistence subdirectories at container run-time
+# and to run the Tomcat server
+COPY aa-init.sh /usr/local/bin
+
 ENV ARCHAPPL_SHORT_TERM_FOLDER=/storage/sts
 ENV ARCHAPPL_MEDIUM_TERM_FOLDER=/storage/mts
 ENV ARCHAPPL_LONG_TERM_FOLDER=/storage/lts
 
-CMD [ "/bin/sh", "quickstart.sh", "tomcat.tar.gz" ]
+CMD [ "/bin/sh", "/usr/local/bin/aa-init.sh" ]
+#CMD [ "/bin/sh", "quickstart.sh", "tomcat.tar.gz" ]
 #CMD [ "/bin/bash"]
 
