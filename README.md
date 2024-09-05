@@ -6,6 +6,7 @@ A description of the files in this repo:
 | ---- | ----------- |
 | Containerfile | Defines the content to build into the image |
 | aa-compose.yaml | Used by `nerdctl compose` to marshall building the image and running the container  |
+| aa-init.sh | Bash script that gets copied to the image and subsequently executed at tun-time to create persisted directories and start the Tomcat server |
 | docker-compose.yaml | This was used as an experimental compose file to test various networking options to try to circumvent Windows lack of 'host' container networking. Retained as there is some useful info and techniques |
 | containerdata  | This directory is mounted by the container and facilitates data persistence  |
 | test\Containerfile | Build specification for the stress test image |
