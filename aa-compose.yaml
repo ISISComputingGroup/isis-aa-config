@@ -13,5 +13,7 @@ services:
       - type: bind
         source: ./containerdata
         target: /storage
+    environment:
+      EPICS_CA_ADDR_LIST: 130.246.49.125:9264
     container_name: my_aa
     # image: isis-aa

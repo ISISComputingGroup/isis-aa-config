@@ -54,13 +54,12 @@ WORKDIR "/opt/archiveapp"
 
 # IP of host where local gateway is running
 
-# The following is the localhost gateway
-#ENV EPICS_CA_ADDR_LIST 130.246.49.125
-#ENV EPICS_CA_ADDR_LIST host.docker.internal
-#ENV EPICS_CA_ADDR_LIST 192.168.127.255
-
-# The following is the R55 gateway
-ENV EPICS_CA_ADDR_LIST 130.246.54.107
+# The following is the localhost gateway.
+# The given port number should correlate with that in start_gwcontainer.bat
+# Note: We need to determine the best method of setting EPICS_CA_ADDR_LIST
+# at run-time. This hard-coded address is currently a fudge to get it running 
+# on a specific dev machine.
+ENV EPICS_CA_ADDR_LIST 130.246.49.125:9264
 
 ENV EPICS_CA_AUTO_ADDR_LIST NO
 ENV EPICS_CA_MAX_ARRAY_BYTES 20000000
@@ -68,9 +67,6 @@ ENV EPICS_CA_MAX_ARRAY_BYTES 20000000
 # TODO: is this really what we want?
 ENV ARCHAPPL_MYIDENTITY localhost
 
-# Ian: 
-# Folders we store data and logs in
-# (may mount them from the host machine):
 # Copy the script to create the data persistence subdirectories at container run-time
 # and to run the Tomcat server
 COPY aa-init.sh /usr/local/bin
@@ -80,6 +76,4 @@ ENV ARCHAPPL_MEDIUM_TERM_FOLDER=/storage/mts
 ENV ARCHAPPL_LONG_TERM_FOLDER=/storage/lts
 
 CMD [ "/bin/sh", "/usr/local/bin/aa-init.sh" ]
-#CMD [ "/bin/sh", "quickstart.sh", "tomcat.tar.gz" ]
-#CMD [ "/bin/bash"]
 
