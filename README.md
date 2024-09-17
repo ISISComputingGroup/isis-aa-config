@@ -1,5 +1,7 @@
 # Archiver Appliance Containerisation
-    This is the expeimental development to containerise the EPICS Archiver Appliance, archiving PV data from localhost as well as the external gateway.
+    This is the experimental development to containerise the EPICS Archiver Appliance, archiving PV data from localhost as well as the external gateway.
+
+For a more detailed description and usage, see the [wiki page](https://github.com/ISISComputingGroup/ibex_developers_manual/wiki/Containerising-the-Archiver-Appliance)
 
 A description of the files in this repo:
 | File | Description |
