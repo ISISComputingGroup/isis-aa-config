@@ -1,5 +1,5 @@
 # Download and extract dependencies
-FROM debian:stable-slim AS download_deps
+FROM debian:stable-slim AS download_tomcat
 
 RUN mkdir -p /opt/archiveapp
 
@@ -12,15 +12,11 @@ WORKDIR "/opt/archiveapp"
 ENV TOMCAT_MAJOR 9
 ENV TOMCAT_VERSION 9.0.93
 
-RUN wget https://github.com/archiver-appliance/epicsarchiverap/releases/download/1.1.0/archappl_v1.1.0.tar.gz -O archappl.tar.gz
-RUN tar zxf archappl.tar.gz
-RUN rm -f archappl.tar.gz
-
 RUN wget https://archive.apache.org/dist/tomcat/tomcat-$TOMCAT_MAJOR/v$TOMCAT_VERSION/bin/apache-tomcat-$TOMCAT_VERSION.tar.gz -O tomcat.tar.gz
 
 
 # Create a JRE containing only what we need using jlink (minimises image size)
-FROM eclipse-temurin:21 as jre_build
+FROM eclipse-temurin:21 AS build_jre
 
 RUN $JAVA_HOME/bin/jlink \
          --add-modules ALL-MODULE-PATH \
@@ -28,8 +24,33 @@ RUN $JAVA_HOME/bin/jlink \
          --no-man-pages \
          --no-header-files \
          --compress zip-6 \
-		 --include-locales en-GB,en-US \
+         --include-locales en-GB,en-US \
          --output /javaruntime
+		 
+
+FROM debian:stable-slim AS build_epics_tools
+
+ENV EPICS_HOST_ARCH linux-x86_64
+RUN apt-get update
+RUN apt-get install -y git gcc g++ make
+RUN git clone https://github.com/epics-base/epics-base /opt/epics-base
+WORKDIR /opt/epics-base
+RUN make -j32
+
+
+FROM eclipse-temurin:17 AS build_archappl
+
+RUN apt-get update
+RUN apt-get install -y git python-is-python3 python3-pip python3-venv
+RUN git clone --branch configure_search_time https://github.com/ISISComputingGroup/epicsarchiverap /opt/aa-repo
+WORKDIR /opt/aa-repo
+
+ENV ARCHAPPL_SITEID isis
+COPY ./sitespecific/ ./src/sitespecific/
+
+RUN ./gradlew
+WORKDIR /opt/archiveapp
+RUN tar zxf /opt/aa-repo/build/distributions/*.tar.gz
 
 
 # Run in a slim image to reduce image size
@@ -37,32 +58,28 @@ FROM debian:stable-slim
 
 RUN apt-get update
 # Facilitate ip tool for network diagnostics during dev.
-RUN apt-get install -y iproute2
-RUN apt install iputils-ping -y
+# cifs-utils needed at runtime to mount archive share
+RUN apt-get install -y iproute2 iputils-ping cifs-utils
+
+RUN apt-get clean
+RUN rm -rf /var/cache/apt/archives /var/lib/apt/lists/*
 
 ENV JAVA_HOME=/opt/java/openjdk
-COPY --from=jre_build /javaruntime $JAVA_HOME
-COPY --from=download_deps /opt/archiveapp /opt/archiveapp
-ENV PATH="${JAVA_HOME}/bin:${PATH}"
+COPY --from=build_jre /javaruntime $JAVA_HOME
+COPY --from=download_tomcat /opt/archiveapp /opt/archiveapp
+COPY --from=build_epics_tools /opt/epics-base /opt/epics-base
+COPY --from=build_archappl /opt/archiveapp /opt/archiveapp
+
+ENV PATH="${JAVA_HOME}/bin:${PATH}:/opt/epics-base/bin/linux-x86_64:/opt/epics-base/lib/linux-x86_64"
 
 WORKDIR "/opt/archiveapp"
 
-# This is very much sub-optimal - pointing at a gateway directly for testing.
-# This is the R55 gateway meaning you can access PVs in R3 and R80, but NOT R55
-# Probably the correct fix is to run another gateway on the local instruments only
-# listening to / used by containers and forwarding to the outside world.
-
-# IP of host where local gateway is running
-
-# The following is the localhost gateway.
-# The given port number should correlate with that in start_gwcontainer.bat
-# Note: We need to determine the best method of setting EPICS_CA_ADDR_LIST
-# at run-time. This hard-coded address is currently a fudge to get it running 
-# on a specific dev machine.
-ENV EPICS_CA_ADDR_LIST 130.246.49.125:9264
-
+# Note: EPICS_CA_ADDR_LIST set in aa-init.sh
 ENV EPICS_CA_AUTO_ADDR_LIST NO
 ENV EPICS_CA_MAX_ARRAY_BYTES 20000000
+ENV EPICS_CA_MAX_SEARCH_PERIOD 60
+ENV EPICS_CA_SERVER_PORT 9264
+ENV EPICS_CA_REPEATER_PORT 9265
 
 # TODO: is this really what we want?
 ENV ARCHAPPL_MYIDENTITY localhost
@@ -75,5 +92,7 @@ ENV ARCHAPPL_SHORT_TERM_FOLDER=/storage/sts
 ENV ARCHAPPL_MEDIUM_TERM_FOLDER=/storage/mts
 ENV ARCHAPPL_LONG_TERM_FOLDER=/storage/lts
 
-CMD [ "/bin/sh", "/usr/local/bin/aa-init.sh" ]
+# Create mountpoint for archive share
+RUN mkdir /storage
 
+CMD [ "/bin/sh", "/usr/local/bin/aa-init.sh" ]

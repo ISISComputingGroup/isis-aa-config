@@ -5,35 +5,20 @@ services:
     tty: true
     build:
       dockerfile: Containerfile
-    networks:
-      aanet:
-          ipv4_address: 10.0.1.2
-#    ports:
-#      - "17665:17665"
-#      - "5064:5064"
-#      - "5065:5065"
-    volumes:
-      - "C:/Instrument/Dev/archiver-appliance/isis-aa-config/containerdata:/storage"
-    container_name: my_aa
-    # image: isis-aa
-
-  isis-epics:
-    networks:
-      aanet:
-          ipv4_address: 10.0.1.3
+    privileged: true  # Necessary for CIFS mounting to work
+    environment:
+      # Credentials for CIFS mount to archive area
+      cifs_domain: ${cifs_domain}
+      cifs_user: ${cifs_user}
+      cifs_pass: ${cifs_pass}
+      # Hostname of the computer hosting this container
+      container_host_hostname: ${container_host_hostname}
     ports:
-      - "5064:5064"
-      - "5065:5065"
-    container_name: epics
-    image: gilesknap/epics-base
-
-
-networks:
-  aanet:
-    # Specify driver options
-    ipam:
-      driver: bridge
-      config:
-        - subnet: "10.0.1.0/24"
-#    driver_opts:
-#      com.docker.network.bridge.host_binding_ipv4: "127.0.0.1"
+      # archive appliance UI
+      - "17665:17665"
+      # Needed for EPICS beacons
+      - "9264:9264"
+      - "9264:9264/udp"
+      - "9265:9265"
+      - "9265:9265/udp"
+    container_name: my_aa
