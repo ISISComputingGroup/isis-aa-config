@@ -16,9 +16,4 @@ services:
     ports:
       # archive appliance UI
       - "17665:17665"
-      # Needed for EPICS beacons
-      - "9264:9264"
-      - "9264:9264/udp"
-      - "9265:9265"
-      - "9265:9265/udp"
     container_name: my_aa

@@ -10,7 +10,7 @@ mkdir -p /storage/lts
 mkdir -p /storage/logs/tomcat
 
 # Get the public ISIS ip address of the host, use port 9264 for GWCONTAINER
-export EPICS_CA_ADDR_LIST=$(getent hosts $container_host_hostname | awk '{ print $1 }' | sed -e 's/$/:9264/' | tr '\n' ' ')
+export EPICS_CA_ADDR_LIST=$(getent hosts $container_host_hostname | awk '{ print $1 }' | grep -F 130.246. | sed -e 's/$/:9264/' | tr '\n' ' ')
 
 # Start the Tomcat server
 /bin/sh quickstart.sh tomcat.tar.gz
