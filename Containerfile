@@ -26,7 +26,6 @@ RUN $JAVA_HOME/bin/jlink \
          --compress zip-6 \
          --include-locales en-GB,en-US \
          --output /javaruntime
-		 
 
 # If EPICS tools needed inside AA container:
 # FROM debian:stable-slim AS build_epics_tools
