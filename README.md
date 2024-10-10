@@ -1,38 +1,30 @@
 # Archiver Appliance Containerisation
-    This is the experimental development to containerise the EPICS Archiver Appliance, archiving PV data from localhost as well as the external gateway.
+
+ISIS Container config for the EPICS Archiver Appliance.
 
 For a more detailed description and usage, see the [wiki page](https://github.com/ISISComputingGroup/ibex_developers_manual/wiki/Containerising-the-Archiver-Appliance)
 
-A description of the files in this repo:
-| File | Description |
-| ---- | ----------- |
-| Containerfile | Defines the content to build into the image |
-| aa-compose.yaml | Used by `nerdctl compose` to marshall building the image and running the container  |
-| aa-init.sh | Bash script that gets copied to the image and subsequently executed at tun-time to create persisted directories and start the Tomcat server |
-| docker-compose.yaml | This was used as an experimental compose file to test various networking options to try to circumvent Windows lack of 'host' container networking. Retained as there is some useful info and techniques |
-| containerdata  | This directory is mounted by the container and facilitates data persistence  |
-| test\Containerfile | Build specification for the stress test image |
-| test\stress-test.py | A simple prime number generator that gets incorporated within the built stress-test image |
+## Developer setup
+
+- Copy the `.env.example` file to `.env` and fill in the relevant details. `.env` is in `.gitignore`, do not check this file into version control.
+- Ensure you have rancher desktop (or another suitable container runner) installed and working.
+- Ensure you have `GWCONTAINER` running on the local host (specified in `.env`).
+  * You will need a reasonably recent checkout of top-level EPICS, and then a restart of IBEX server, for this.
+- Run `nerdctl compose -f docker-compose.yaml up` to bring up the container. Give it several minutes to start and connect properly.
+- Go to `http://localhost:17665/mgmt/ui/index.html` in your web browser, you should see an archive appliance UI.
 
 ## Some useful commands
 Show the running containers:
 `nerdctl.exe ps -all`
 
 Stop the container:
-`nerdctl.exe stop isis-aa-<number>`
+`nerdctl compose -f docker-compose.yaml down`
 
-Run the container:
-`nerdctl run -it --rm -p17665:17665 isis-aa`
-
-Initially add these to the archiver appliance:
-```
-TE:NDW2920:DAE:RUNSTATE
-TE:NDW2920:DAE:GOODFRAMES
-IN:ZOOM:DAE:RUNSTATE
-```
+Stop, rebuild & restart container (without cached images):
+`nerdctl compose -f docker-compose.yaml down && nerdctl compose -f docker-compose.yaml build --no-cache && nerdctl compose -f docker-compose.yaml up`
 
 To run a bash session on the running container:
-nerdctl.exe exec -it isis-aa-<number> bash
+`nerdctl exec -it my_aa /bin/bash`
 
 To list ports used by process ID:
 `netstat -p tcp -ano`
