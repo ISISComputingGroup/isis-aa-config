@@ -8,11 +8,15 @@ RUN apt-get install -y wget
 
 WORKDIR "/opt/archiveapp"
 
+# Edit the Tomcat version here if required
+ENV TOMCAT_MAJOR 9
+ENV TOMCAT_VERSION 9.0.93
+
 RUN wget https://github.com/archiver-appliance/epicsarchiverap/releases/download/1.1.0/archappl_v1.1.0.tar.gz -O archappl.tar.gz
 RUN tar zxf archappl.tar.gz
 RUN rm -f archappl.tar.gz
 
-RUN wget https://dlcdn.apache.org/tomcat/tomcat-9/v9.0.91/bin/apache-tomcat-9.0.91.tar.gz -O tomcat.tar.gz
+RUN wget https://archive.apache.org/dist/tomcat/tomcat-$TOMCAT_MAJOR/v$TOMCAT_VERSION/bin/apache-tomcat-$TOMCAT_VERSION.tar.gz -O tomcat.tar.gz
 
 
 # Create a JRE containing only what we need using jlink (minimises image size)
@@ -31,6 +35,11 @@ RUN $JAVA_HOME/bin/jlink \
 # Run in a slim image to reduce image size
 FROM debian:stable-slim
 
+RUN apt-get update
+# Facilitate ip tool for network diagnostics during dev.
+RUN apt-get install -y iproute2
+RUN apt install iputils-ping -y
+
 ENV JAVA_HOME=/opt/java/openjdk
 COPY --from=jre_build /javaruntime $JAVA_HOME
 COPY --from=download_deps /opt/archiveapp /opt/archiveapp
@@ -42,11 +51,29 @@ WORKDIR "/opt/archiveapp"
 # This is the R55 gateway meaning you can access PVs in R3 and R80, but NOT R55
 # Probably the correct fix is to run another gateway on the local instruments only
 # listening to / used by containers and forwarding to the outside world.
-ENV EPICS_CA_ADDR_LIST 130.246.54.107
+
+# IP of host where local gateway is running
+
+# The following is the localhost gateway.
+# The given port number should correlate with that in start_gwcontainer.bat
+# Note: We need to determine the best method of setting EPICS_CA_ADDR_LIST
+# at run-time. This hard-coded address is currently a fudge to get it running 
+# on a specific dev machine.
+ENV EPICS_CA_ADDR_LIST 130.246.49.125:9264
+
 ENV EPICS_CA_AUTO_ADDR_LIST NO
 ENV EPICS_CA_MAX_ARRAY_BYTES 20000000
 
 # TODO: is this really what we want?
 ENV ARCHAPPL_MYIDENTITY localhost
 
-CMD [ "/bin/sh", "quickstart.sh", "tomcat.tar.gz" ]
+# Copy the script to create the data persistence subdirectories at container run-time
+# and to run the Tomcat server
+COPY aa-init.sh /usr/local/bin
+
+ENV ARCHAPPL_SHORT_TERM_FOLDER=/storage/sts
+ENV ARCHAPPL_MEDIUM_TERM_FOLDER=/storage/mts
+ENV ARCHAPPL_LONG_TERM_FOLDER=/storage/lts
+
+CMD [ "/bin/sh", "/usr/local/bin/aa-init.sh" ]
+
