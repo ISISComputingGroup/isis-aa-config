@@ -42,7 +42,7 @@ FROM eclipse-temurin:17 AS build_archappl
 
 RUN apt-get update
 RUN apt-get install -y git python-is-python3 python3-pip python3-venv
-RUN git clone --branch configure_search_time https://github.com/ISISComputingGroup/epicsarchiverap /opt/aa-repo
+RUN git clone --branch master https://github.com/ISISComputingGroup/epicsarchiverap /opt/aa-repo
 WORKDIR /opt/aa-repo
 
 ENV ARCHAPPL_SITEID isis
