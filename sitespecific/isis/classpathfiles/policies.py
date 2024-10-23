@@ -6,6 +6,7 @@
 # Modification History
 #        Jan 31, 2012, Shankar: Initial version of policies.py with comments.
 #        May 14, 2012, Li, Shankar: Added support for archiving extra fields into policy file.
+#		 Oct 15, 2024, Jack Doughty: Changed policies for use at ISIS/IBEX Archive Appliance
 #
 # This is the policies.py used to enforce policies for archiving PVs
 # At a very high level, when users request PVs to be archived, the mgmt web app samples the PV to determine event rate and other parameters.
@@ -25,109 +26,138 @@
 # The results of this method is placed into a list variable called called 'pvStandardFields'.  
 
 
-import sys
-import os
-
 # Generate a list of policy names. This is used to feed the dropdown in the UI.
 def getPolicyList():
 	pvPoliciesDict = {}
 	pvPoliciesDict['Default'] = 'The default policy'
-	pvPoliciesDict['BPMS'] = 'BPMS that generate more than 1GB a year'
-	pvPoliciesDict['2HzPVs'] = 'PVs with an event rate more than 2Hz'
-	pvPoliciesDict['3DaysMTSOnly'] = 'Store data for 3 days upto the MTS only.'
 	return pvPoliciesDict
 
 # Define a list of fields that will be archived as part of every PV.
 # The data for these fields will included in the stream for the PV.
 # We also make an assumption that the data type for these fields is the same as that of the .VAL field
 def getFieldsArchivedAsPartOfStream():
-	 return ['HIHI','HIGH','LOW','LOLO','LOPR','HOPR','DRVH','DRVL'];
+	return ['HIHI','HIGH','LOW','LOLO','LOPR','HOPR','DRVH','DRVL']
 
+samplePeriod = 1.0 
 
 # We use the environment variables ARCHAPPL_SHORT_TERM_FOLDER and ARCHAPPL_MEDIUM_TERM_FOLDER to determine the location of the STS and the MTS in the appliance
-shorttermstore_plugin_url = 'pb://localhost?name=STS&rootFolder=${ARCHAPPL_SHORT_TERM_FOLDER}&partitionGranularity=PARTITION_HOUR&consolidateOnShutdown=true'
-mediumtermstore_plugin_url = 'pb://localhost?name=MTS&rootFolder=${ARCHAPPL_MEDIUM_TERM_FOLDER}&partitionGranularity=PARTITION_DAY&hold=2&gather=1'
-longtermstore_plugin_url = 'pb://localhost?name=LTS&rootFolder=${ARCHAPPL_LONG_TERM_FOLDER}&partitionGranularity=PARTITION_YEAR'
-#longtermstore_plugin_url = 'blackhole://localhost'
+shorttermstore_plugin_url = 'pb://localhost?name=STS&rootFolder=${ARCHAPPL_SHORT_TERM_FOLDER}&partitionGranularity=PARTITION_HOUR&hold=1&gather=1'
+# 1 hour short term
+
+mediumtermstore_plugin_url = 'pb://localhost?name=MTS&rootFolder=${ARCHAPPL_MEDIUM_TERM_FOLDER}&partitionGranularity=PARTITION_HOUR&hold=4416&gather=1'
+# Minimum 6 months medium term.
+# Max number of hours in 6 months is 4416.
+
+longtermstore_plugin_url = 'pb://localhost?name=LTS&rootFolder=${ARCHAPPL_LONG_TERM_FOLDER}&partitionGranularity=PARTITION_YEAR&hold=999&pp=optimLastSample_10540800'# + str(8784 * 60 * 60 * (samplePeriod / 3))
+# Minimum 10 years long term
+# Max number of hours in 12 months is 8784.
+# Downsamples by a third
 
 def determinePolicy(pvInfoDict):
+
 	pvPolicyDict = {}
 	
 	userPolicyOverride = ''
 	if 'policyName' in pvInfoDict:
 		userPolicyOverride = pvInfoDict['policyName']
 
-	if userPolicyOverride == '2HzPVs' or (userPolicyOverride == '' and pvInfoDict['eventRate'] > 2.0):
-		pvPolicyDict['samplingPeriod'] = 1.0
+	if userPolicyOverride == 'Default' or userPolicyOverride == '':
+
+		pvPolicyDict['samplingPeriod'] = samplePeriod
 		pvPolicyDict['samplingMethod'] = 'MONITOR'
+
 		pvPolicyDict['dataStores'] = [
 			shorttermstore_plugin_url, 
 			mediumtermstore_plugin_url, 
 			longtermstore_plugin_url
-			]
-		pvPolicyDict['policyName'] = '2HzPVs';
-	elif userPolicyOverride == 'Default' or (userPolicyOverride == '' and pvInfoDict['pvName'] == 'mshankar:arch:sine'):
-		pvPolicyDict['samplingPeriod'] = 1.0
-		pvPolicyDict['samplingMethod'] = 'MONITOR'
-		pvPolicyDict['dataStores'] = [
-			shorttermstore_plugin_url, 
-			mediumtermstore_plugin_url, 
-			longtermstore_plugin_url + "&pp=firstSample&pp=firstSample_3600"
-			]
-		pvPolicyDict['policyName'] = 'Default';
-	elif userPolicyOverride == 'BPMS' or (userPolicyOverride == '' and pvInfoDict['pvName'].startswith('BPMS') and pvInfoDict['storageRate'] > 35):
-		# We limit BPM PVs to 1GB/year (34 bytes/sec)
-		# We reduce the sampling rate (and hence increase the sampling period) to cater to this. 
-		pvPolicyDict['samplingPeriod'] = pvInfoDict['storageRate']/(35*pvInfoDict['eventRate'])
-		pvPolicyDict['samplingMethod'] = 'MONITOR'
-		pvPolicyDict['dataStores'] = [
-			shorttermstore_plugin_url, 
-			mediumtermstore_plugin_url, 
-			longtermstore_plugin_url
-			]
-		pvPolicyDict['policyName'] = 'BPMS';
-	elif userPolicyOverride == '3DaysMTSOnly':
-		pvPolicyDict['samplingPeriod'] = 1.0
-		pvPolicyDict['samplingMethod'] = 'MONITOR'
-		pvPolicyDict['dataStores'] = [
-			shorttermstore_plugin_url, 
-			# We want to store 3 days worth of data in the MTS.
-			'pb://localhost?name=MTS&rootFolder=${ARCHAPPL_MEDIUM_TERM_FOLDER}&partitionGranularity=PARTITION_DAY&hold=4&gather=1', 
-			'blackhole://localhost?name=LTS'
-			]
-		pvPolicyDict['policyName'] = '2HzPVs';
-	else:
-		pvPolicyDict['samplingPeriod'] = 1.0
-		pvPolicyDict['samplingMethod'] = 'MONITOR'
-		pvPolicyDict['dataStores'] = [
-			shorttermstore_plugin_url, 
-			mediumtermstore_plugin_url, 
-			longtermstore_plugin_url
-			]
-		pvPolicyDict['policyName'] = 'Default';
-	 
+		]
+
 	archiveFields=[]
 	
-	if "RTYP" not in pvInfoDict:
-		pvPolicyDict["archiveFields"]=archiveFields
-	else:
+	if "RTYP" in pvInfoDict:
 		pvRTYP=pvInfoDict["RTYP"]
-		if pvRTYP=="ai":
-			archiveFields=['HIHI','HIGH','LOW','LOLO','LOPR','HOPR']
-		elif pvRTYP=="ao":
-			archiveFields=['HIHI','HIGH','LOW','LOLO','LOPR','HOPR','DRVH','DRVL']
-		elif pvRTYP=="calc":
-			archiveFields=['HIHI','HIGH','LOW','LOLO','LOPR','HOPR']
-		elif pvRTYP=="calcout":
-			archiveFields=['HIHI','HIGH','LOW','LOLO','LOPR','HOPR']
-		elif pvRTYP=="longin":
-			archiveFields=['HIHI','HIGH','LOW','LOLO','LOPR','HOPR']
-		elif pvRTYP=="longout":
-			archiveFields=['HIHI','HIGH','LOW','LOLO','LOPR','HOPR','DRVH','DRVL']
-		elif pvRTYP=="dfanout":
-			archiveFields=['HIHI','HIGH','LOW','LOLO','LOPR','HOPR']
-		elif pvRTYP=="sub":
-			archiveFields=['HIHI','HIGH','LOW','LOLO','LOPR','HOPR']
+		if pvRTYP=="motor":
+			archiveFields=[
+
+				#"EGU",
+
+				# Drive
+				"RBV",
+				"DRBV",
+				"RRBV",
+				"DVAL",
+				"RVAL",
+				"HLM",
+				"DHLM",
+				"HLS",
+				"SPMG",
+				"LLM",
+				"DLLM",
+				"LLS",
+				"RLV",
+				"JOGR",
+				"JOGF",
+				"TWR",
+				"TWV",
+				"TWF",
+				"HOMR",
+				"HOMF",
+				"STOP",
+
+				# Resolution
+				"MRES",
+				"ERES",
+				"RRES",
+				"RDBD",
+				"RCNT",
+				"RTRY",
+				"UEIP",
+				"URIP",
+				"DLY",
+				#"RDBL",
+				#"PREM",
+				#"POST",
+				
+				# Calibration
+				"FOFF",
+				"SET",
+				"OFF",
+				"DIR",
+				
+				# Dynamics
+				"VMAX",
+				"JVEL",
+				"VELO",
+				"BVEL",
+				"VBAS",
+				"ACCL",
+				"BACC",
+				"JAR",
+				"BDST",
+				"FRAC",
+
+				#Status
+				"STAT",
+				"TDIR",
+				"MOVN",
+				"ATHM",
+				"RMP",
+				"REP",
+				"MIP",
+				"DIFF",
+				"VERS",
+				"CARD",
+				"PREC",
+				"CNEN",
+				#"FLNK",
+
+				# Servo
+				"PCOF",
+				"ICOF",
+				"DCOF"
+
+				]
+			
 		pvPolicyDict["archiveFields"]=archiveFields
 
 	return pvPolicyDict
